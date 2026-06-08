@@ -20,7 +20,13 @@ object RemoteCommandMapper {
         "volumeDown" to RemoteKeyCode.KEYCODE_VOLUME_DOWN,
         "mute" to RemoteKeyCode.KEYCODE_VOLUME_MUTE,
         "channelUp" to RemoteKeyCode.KEYCODE_CHANNEL_UP,
-        "channelDown" to RemoteKeyCode.KEYCODE_CHANNEL_DOWN
+        "channelDown" to RemoteKeyCode.KEYCODE_CHANNEL_DOWN,
+        "mediaPlayPause" to RemoteKeyCode.KEYCODE_MEDIA_PLAY_PAUSE,
+        "mediaStop" to RemoteKeyCode.KEYCODE_MEDIA_STOP,
+        "mediaNext" to RemoteKeyCode.KEYCODE_MEDIA_NEXT,
+        "mediaPrevious" to RemoteKeyCode.KEYCODE_MEDIA_PREVIOUS,
+        "mediaRewind" to RemoteKeyCode.KEYCODE_MEDIA_REWIND,
+        "mediaFastForward" to RemoteKeyCode.KEYCODE_MEDIA_FAST_FORWARD,
     )
 
     fun toKeyCode(command: String): RemoteKeyCode? = keyCodes[command]
