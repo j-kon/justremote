@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../tv_discovery/domain/tv_device.dart';
 import '../data/remote_control_channel.dart';
 import '../domain/remote_command.dart';
 import 'widgets/dpad_widget.dart';
-import 'widgets/remote_button_widget.dart';
+import 'widgets/input_tab.dart';
+import 'widgets/media_tab.dart';
+import 'widgets/status_bar.dart';
 import 'widgets/top_controls.dart';
 import 'widgets/volume_controls.dart';
 
@@ -23,7 +26,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
   final _channel = RemoteControlChannel();
   bool _connected = false;
   String? _deviceName;
-  String? _lastMessage;
+  int _tabIndex = 0;
 
   @override
   void initState() {
@@ -42,7 +45,6 @@ class _RemoteScreenState extends State<RemoteScreen> {
       });
       return;
     }
-
     final connected = await _channel.connectToTv(device);
     if (!mounted) return;
     setState(() {
@@ -53,23 +55,19 @@ class _RemoteScreenState extends State<RemoteScreen> {
 
   Future<void> _send(RemoteCommand command) async {
     try {
-      final success = await _channel.sendCommand(command);
-      if (!mounted) return;
-      setState(() {
-        _lastMessage = success ? '${command.wireName} sent' : 'Command failed';
-      });
+      await _channel.sendCommand(command);
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _lastMessage = 'Command failed';
-      });
+      // Non-fatal — TV may ignore unknown commands.
     }
   }
+
+  // Placeholder until the keyboard-input feature (other plan) is wired up.
+  void _sendText(String text) {}
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Remote',
+      title: '',
       actions: [
         IconButton(
           tooltip: 'Saved TVs',
@@ -82,113 +80,132 @@ class _RemoteScreenState extends State<RemoteScreen> {
           onPressed: () => context.push('/settings'),
         ),
       ],
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final dpadSize = constraints.maxWidth.clamp(260.0, 360.0);
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
-            children: [
-              _ConnectionHeader(
-                connected: _connected,
-                deviceName:
-                    _deviceName ?? widget.device?.name ?? 'No TV connected',
-              ),
-              const SizedBox(height: 22),
-              TopControls(onCommand: _send),
-              const SizedBox(height: 28),
-              Center(
-                child: SizedBox.square(
-                  dimension: dpadSize,
-                  child: DpadWidget(onCommand: _send),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: StatusBar(
+              connected: _connected,
+              deviceName:
+                  _deviceName ?? widget.device?.name ?? 'No TV connected',
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TopControls(onCommand: _send),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: IndexedStack(
+              index: _tabIndex,
+              children: [
+                // Remote tab — D-pad dominant
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = constraints.maxHeight.clamp(200.0, 300.0);
+                    return Center(
+                      child: SizedBox.square(
+                        dimension: size,
+                        child: DpadWidget(onCommand: _send),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(height: 28),
-              VolumeControls(onCommand: _send),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  RemoteButtonWidget(
-                    label: 'Channel down',
-                    icon: Icons.keyboard_arrow_down_rounded,
-                    onPressed: () => _send(RemoteCommand.channelDown),
-                  ),
-                  RemoteButtonWidget(
-                    label: 'Keyboard',
-                    icon: Icons.keyboard_rounded,
-                    onPressed: () => setState(() {
-                      _lastMessage = 'Keyboard placeholder';
-                    }),
-                  ),
-                  RemoteButtonWidget(
-                    label: 'Touchpad',
-                    icon: Icons.touch_app_rounded,
-                    onPressed: () => setState(() {
-                      _lastMessage = 'Touchpad placeholder';
-                    }),
-                  ),
-                  RemoteButtonWidget(
-                    label: 'Channel up',
-                    icon: Icons.keyboard_arrow_up_rounded,
-                    onPressed: () => _send(RemoteCommand.channelUp),
-                  ),
-                ],
-              ),
-              if (_lastMessage != null) ...[
-                const SizedBox(height: 20),
-                Text(
-                  _lastMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white60),
-                ),
+                // Media tab
+                MediaTab(onCommand: _send),
+                // Input tab
+                InputTab(onCommand: _send, onSendText: _sendText),
               ],
-            ],
-          );
-        },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: VolumeControls(onCommand: _send),
+          ),
+          const SizedBox(height: 4),
+          _BottomTabBar(
+            selectedIndex: _tabIndex,
+            onTab: (i) => setState(() => _tabIndex = i),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ConnectionHeader extends StatelessWidget {
-  const _ConnectionHeader({required this.connected, required this.deviceName});
+class _BottomTabBar extends StatelessWidget {
+  const _BottomTabBar({required this.selectedIndex, required this.onTab});
 
-  final bool connected;
-  final String deviceName;
+  final int selectedIndex;
+  final ValueChanged<int> onTab;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
+    return Container(
+      height: 56,
+      decoration: const BoxDecoration(
+        color: Color(0xFF141920),
+        border: Border(top: BorderSide(color: AppTheme.glassButtonBorder)),
+      ),
+      child: Row(
+        children: [
+          _Tab(
+            icon: Icons.sports_esports_rounded,
+            label: 'Remote',
+            selected: selectedIndex == 0,
+            onTap: () => onTab(0),
+          ),
+          _Tab(
+            icon: Icons.music_note_rounded,
+            label: 'Media',
+            selected: selectedIndex == 1,
+            onTap: () => onTab(1),
+          ),
+          _Tab(
+            icon: Icons.keyboard_rounded,
+            label: 'Input',
+            selected: selectedIndex == 2,
+            onTap: () => onTab(2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  const _Tab({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppTheme.accent : AppTheme.textDim;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: connected
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.white30,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                deviceName,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ),
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 3),
             Text(
-              connected ? 'Connected' : 'Disconnected',
+              label,
               style: TextStyle(
-                color: connected
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.white54,
-                fontWeight: FontWeight.w700,
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
