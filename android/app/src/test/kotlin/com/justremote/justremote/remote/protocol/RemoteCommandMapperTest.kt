@@ -9,10 +9,26 @@ import org.junit.Test
 class RemoteCommandMapperTest {
     @Test
     fun mapsFlutterCommandsToAndroidTvKeyCodes() {
-        assertEquals(RemoteKeyCode.KEYCODE_HOME, RemoteCommandMapper.toKeyCode("home"))
-        assertEquals(RemoteKeyCode.KEYCODE_DPAD_CENTER, RemoteCommandMapper.toKeyCode("select"))
-        assertEquals(RemoteKeyCode.KEYCODE_VOLUME_MUTE, RemoteCommandMapper.toKeyCode("mute"))
-        assertEquals(RemoteKeyCode.KEYCODE_CHANNEL_UP, RemoteCommandMapper.toKeyCode("channelUp"))
+        val expected = mapOf(
+            "power" to RemoteKeyCode.KEYCODE_POWER,
+            "home" to RemoteKeyCode.KEYCODE_HOME,
+            "back" to RemoteKeyCode.KEYCODE_BACK,
+            "menu" to RemoteKeyCode.KEYCODE_MENU,
+            "up" to RemoteKeyCode.KEYCODE_DPAD_UP,
+            "down" to RemoteKeyCode.KEYCODE_DPAD_DOWN,
+            "left" to RemoteKeyCode.KEYCODE_DPAD_LEFT,
+            "right" to RemoteKeyCode.KEYCODE_DPAD_RIGHT,
+            "select" to RemoteKeyCode.KEYCODE_DPAD_CENTER,
+            "volumeUp" to RemoteKeyCode.KEYCODE_VOLUME_UP,
+            "volumeDown" to RemoteKeyCode.KEYCODE_VOLUME_DOWN,
+            "mute" to RemoteKeyCode.KEYCODE_VOLUME_MUTE,
+            "channelUp" to RemoteKeyCode.KEYCODE_CHANNEL_UP,
+            "channelDown" to RemoteKeyCode.KEYCODE_CHANNEL_DOWN
+        )
+
+        expected.forEach { (command, keyCode) ->
+            assertEquals(keyCode, RemoteCommandMapper.toKeyCode(command))
+        }
     }
 
     @Test

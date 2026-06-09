@@ -29,7 +29,9 @@ class _ScanTvScreenState extends ConsumerState<ScanTvScreen> {
   Future<List<TvDevice>> _scan() =>
       ref.read(tvDiscoveryRepositoryProvider).scanForTvs();
 
-  void _rescan() => setState(() => _scanFuture = _scan());
+  void _rescan() => setState(() {
+        _scanFuture = _scan();
+      });
 
   void _enterManualIp() {
     final controller = TextEditingController();

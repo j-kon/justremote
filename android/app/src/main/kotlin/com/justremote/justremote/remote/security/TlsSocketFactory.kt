@@ -1,36 +1,47 @@
 package com.justremote.justremote.remote.security
 
-import java.security.KeyStore
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
-import javax.net.ssl.KeyManagerFactory
+import java.net.InetSocketAddress
+import java.net.Socket
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLHandshakeException
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
 class TlsSocketFactory(private val credentialStore: PairingCredentialStore) {
-    fun createSocket(host: String, port: Int): SSLSocket {
-        val identity = credentialStore.getOrCreateClientIdentity()
-        val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
-            load(null, null)
-            setKeyEntry(
-                "justremote",
-                identity.privateKey,
-                CharArray(0),
-                arrayOf(identity.certificate)
-            )
+    fun createSocket(
+        host: String,
+        port: Int,
+        connectTimeoutMs: Int = SOCKET_TIMEOUT_MS,
+        readTimeoutMs: Int = SOCKET_TIMEOUT_MS
+    ): SSLSocket {
+        return try {
+            createSocketInternal(host, port, connectTimeoutMs, readTimeoutMs)
+        } catch (e: SSLHandshakeException) {
+            // If the stored TLS client identity is stale or incompatible with
+            // Android TV's legacy TLS handshake, regenerate it and retry once.
+            credentialStore.resetClientIdentity()
+            createSocketInternal(host, port, connectTimeoutMs, readTimeoutMs)
         }
-        val keyManagerFactory = KeyManagerFactory.getInstance(
-            KeyManagerFactory.getDefaultAlgorithm()
-        ).apply {
-            init(keyStore, CharArray(0))
+    }
+
+    private fun createSocketInternal(
+        host: String,
+        port: Int,
+        connectTimeoutMs: Int,
+        readTimeoutMs: Int
+    ): SSLSocket {
+        val tcpSocket = Socket().apply {
+            connect(InetSocketAddress(host, port), connectTimeoutMs)
         }
         val context = SSLContext.getInstance("TLS").apply {
-            init(keyManagerFactory.keyManagers, arrayOf(trustAllManager), SecureRandom())
+            init(credentialStore.getOrCreateClientKeyManagers(), arrayOf(trustAllManager), SecureRandom())
         }
-        return (context.socketFactory.createSocket(host, port) as SSLSocket).apply {
-            soTimeout = SOCKET_TIMEOUT_MS
+        return (context.socketFactory.createSocket(tcpSocket, host, port, true) as SSLSocket).apply {
+            soTimeout = readTimeoutMs
+            useClientMode = true
             startHandshake()
         }
     }

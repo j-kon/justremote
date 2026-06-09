@@ -17,10 +17,16 @@ class PairingProtocolClient(
     private val credentialStore: PairingCredentialStore,
     private val socketFactory: TlsSocketFactory
 ) {
+    fun isPaired(device: NativeTvDevice): Boolean = credentialStore.isPaired(device)
+
     fun startPairing(device: NativeTvDevice): PairingSession {
-        val socket = socketFactory.createSocket(device.host, PAIRING_PORT)
+        val pairingPort = AndroidTvPorts.pairingPort(device.port)
+        val socket = socketFactory.createSocket(device.host, pairingPort)
         val session = PairingSession(device, socket, socket.peerCertificate())
 
+        // Android TV Remote Protocol v2 pairs over the Polo protocol on the
+        // port immediately after the remote-control port. The client first
+        // announces itself, then negotiates hexadecimal code entry as INPUT.
         session.send(
             createMessage().toBuilder()
                 .setPairingRequest(
@@ -75,6 +81,9 @@ class PairingProtocolClient(
         require(normalizedCode.length == PAIRING_CODE_LENGTH) {
             "Pairing code must be 6 hexadecimal characters"
         }
+        // The TV never receives the code directly. Both sides combine the
+        // client/server RSA certificate public parameters with the entered code
+        // and compare the resulting SHA-256 proof.
         val secret = computeSecret(
             clientCertificate = credentialStore.getOrCreateClientIdentity().certificate,
             serverCertificate = session.serverCertificate,
@@ -144,7 +153,6 @@ class PairingProtocolClient(
     }
 
     companion object {
-        const val PAIRING_PORT = 6467
         private const val PROTOCOL_VERSION = 2
         private const val PAIRING_CODE_LENGTH = 6
         private const val SERVICE_NAME = "atvremote"
