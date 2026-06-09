@@ -34,30 +34,40 @@ class _RemoteScreenState extends State<RemoteScreen> {
     _connect();
   }
 
-  Future<void> _connect() async {
+  Future<bool> _connect() async {
     final device = widget.device;
     if (device == null) {
       final status = await _channel.getConnectionStatus();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _connected = status['connected'] == true;
         _deviceName = status['deviceName'] as String?;
       });
-      return;
+      return _connected;
     }
     final connected = await _channel.connectToTv(device);
-    if (!mounted) return;
+    if (!mounted) return false;
     setState(() {
       _connected = connected;
       _deviceName = device.name;
     });
+    return connected;
   }
 
   Future<void> _send(RemoteCommand command) async {
     try {
-      await _channel.sendCommand(command);
+      if (!_connected && !await _connect()) return;
+      final sent = await _channel.sendCommand(command);
+      if (sent) return;
+      if (await _connect()) {
+        await _channel.sendCommand(command);
+      }
     } catch (_) {
-      // Non-fatal — TV may ignore unknown commands.
+      if (!mounted) return;
+      setState(() => _connected = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connection lost. Try again.')),
+      );
     }
   }
 

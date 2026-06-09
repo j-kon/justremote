@@ -80,13 +80,14 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
         device: widget.device,
         pairingCode: code,
       );
-      await ref.read(savedTvsRepositoryProvider).saveTv(widget.device);
+      final pairedDevice = widget.device.copyWith(paired: true);
+      await ref.read(savedTvsRepositoryProvider).saveTv(pairedDevice);
       ref.invalidate(savedTvsProvider);
       setState(() {
         _status = PairingStatus.success;
         _message = message;
       });
-      if (mounted) context.go('/remote', extra: widget.device);
+      if (mounted) context.go('/remote', extra: pairedDevice);
     } catch (_) {
       setState(() {
         _status = PairingStatus.failed;
@@ -249,15 +250,15 @@ class CodeBox extends StatelessWidget {
         child: isActive
             ? const _BlinkingCursor()
             : (char != null
-                ? Text(
-                    char!.toUpperCase(),
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : null),
+                  ? Text(
+                      char!.toUpperCase(),
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : null),
       ),
     );
   }

@@ -44,7 +44,10 @@ class TvRemotePlugin(
             "connectToTv",
             "disconnectTv",
             "sendCommand",
-            "getConnectionStatus" -> executor.execute {
+            "forgetTv",
+            "resetPairingData",
+            "getConnectionStatus",
+            "getDiagnostics" -> executor.execute {
                 handleRemoteMethod(call, result)
             }
             else -> result.notImplemented()
@@ -70,12 +73,24 @@ class TvRemotePlugin(
                 "disconnectTv" -> {
                     result.success(commandManager.disconnectTv())
                 }
+                "forgetTv" -> {
+                    val device = NativeTvDevice.fromArguments(call.argumentsMap())
+                    commandManager.disconnectTv()
+                    result.success(pairingManager.forgetTv(device).toMap())
+                }
+                "resetPairingData" -> {
+                    commandManager.disconnectTv()
+                    result.success(pairingManager.resetPairingData().toMap())
+                }
                 "sendCommand" -> {
                     val command = call.argument<String>("command").orEmpty()
                     result.success(commandManager.sendCommand(command))
                 }
                 "getConnectionStatus" -> {
                     result.success(commandManager.getConnectionStatus())
+                }
+                "getDiagnostics" -> {
+                    result.success(NativeRemoteDiagnostics.snapshot())
                 }
             }
         } catch (error: Throwable) {
@@ -102,9 +117,17 @@ class TvRemotePlugin(
             "scanForTvs" -> emptyList<Map<String, Any>>()
             "pairTv",
             "connectToTv",
-            "disconnectTv" -> mapOf("success" to false, "message" to message)
+            "disconnectTv",
+            "forgetTv",
+            "resetPairingData" -> mapOf("success" to false, "message" to message)
             "sendCommand" -> mapOf("success" to false, "message" to message)
             "getConnectionStatus" -> mapOf("connected" to false, "deviceName" to null)
+            "getDiagnostics" -> mapOf(
+                "connected" to false,
+                "deviceName" to null,
+                "lastError" to message,
+                "events" to emptyList<String>()
+            )
             else -> mapOf("success" to false, "message" to message)
         }
     }

@@ -77,6 +77,7 @@ class SavedTvsScreen extends ConsumerWidget {
                 ),
                 direction: DismissDirection.endToStart,
                 onDismissed: (_) async {
+                  await RemoteControlChannel().forgetTv(device);
                   await ref
                       .read(savedTvsRepositoryProvider)
                       .removeTv(device.id);
@@ -85,8 +86,19 @@ class SavedTvsScreen extends ConsumerWidget {
                 child: TvDeviceCard(
                   device: device,
                   onTap: () async {
-                    await RemoteControlChannel().connectToTv(device);
-                    if (context.mounted) context.go('/remote', extra: device);
+                    if (!device.paired) {
+                      context.push('/pairing', extra: device);
+                      return;
+                    }
+                    final connected = await RemoteControlChannel().connectToTv(
+                      device,
+                    );
+                    if (!context.mounted) return;
+                    if (connected) {
+                      context.go('/remote', extra: device);
+                    } else {
+                      context.push('/pairing', extra: device);
+                    }
                   },
                 ),
               );

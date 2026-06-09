@@ -50,6 +50,16 @@ class TvDeviceCard extends StatelessWidget {
                         context,
                       ).textTheme.bodySmall?.copyWith(color: Colors.white60),
                     ),
+                    if (device.paired) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Paired',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -75,6 +75,16 @@ class PairingCredentialStore(context: Context) {
             .apply()
     }
 
+    fun removePairedDevice(device: NativeTvDevice) {
+        preferences.edit()
+            .remove(device.serverCertificateKey())
+            .apply()
+    }
+
+    fun clearPairingData() {
+        preferences.edit().clear().apply()
+    }
+
     fun getServerCertificate(device: NativeTvDevice): X509Certificate? {
         val encoded = preferences.getString(device.serverCertificateKey(), null) ?: return null
         return decodeCertificate(encoded)

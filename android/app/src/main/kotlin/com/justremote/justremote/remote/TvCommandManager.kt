@@ -25,6 +25,7 @@ class TvCommandManager(
             connection = newConnection
             connectedDevice = device
             Log.d(TAG, "connectToTv connected to ${device.name}")
+            NativeRemoteDiagnostics.setConnection(true, device.name)
 
             mapOf(
                 "success" to true,
@@ -35,9 +36,11 @@ class TvCommandManager(
             connectedDevice = null
             connection?.close()
             connection = null
+            val message = error.cleanMessage("Connection failed")
+            NativeRemoteDiagnostics.setError(message)
             mapOf(
                 "success" to false,
-                "message" to error.cleanMessage("Connection failed")
+                "message" to message
             )
         }
     }
@@ -47,6 +50,7 @@ class TvCommandManager(
         connection?.close()
         connection = null
         connectedDevice = null
+        NativeRemoteDiagnostics.setConnection(false, null)
         return mapOf(
             "success" to true,
             "message" to "Disconnected"
@@ -64,13 +68,17 @@ class TvCommandManager(
                 activeConnection.sendCommand(command)
             }
             if (success) {
+                NativeRemoteDiagnostics.record("Command sent: $command")
                 mapOf("success" to true)
             } else {
+                NativeRemoteDiagnostics.setError("Unsupported command: $command")
                 mapOf("success" to false, "message" to "Unsupported command")
             }
         } catch (error: Throwable) {
             Log.w(TAG, "sendCommand failed", error)
-            mapOf("success" to false, "message" to error.cleanMessage("Command failed"))
+            val message = error.cleanMessage("Command failed")
+            NativeRemoteDiagnostics.setError(message)
+            mapOf("success" to false, "message" to message)
         }
     }
 

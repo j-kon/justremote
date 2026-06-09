@@ -19,6 +19,14 @@ class PairingProtocolClient(
 ) {
     fun isPaired(device: NativeTvDevice): Boolean = credentialStore.isPaired(device)
 
+    fun forgetDevice(device: NativeTvDevice) {
+        credentialStore.removePairedDevice(device)
+    }
+
+    fun resetPairingData() {
+        credentialStore.clearPairingData()
+    }
+
     fun startPairing(device: NativeTvDevice): PairingSession {
         val pairingPort = AndroidTvPorts.pairingPort(device.port)
         val socket = socketFactory.createSocket(device.host, pairingPort)

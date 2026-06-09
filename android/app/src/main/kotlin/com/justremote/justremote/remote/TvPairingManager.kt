@@ -23,6 +23,7 @@ class TvPairingManager(
         return try {
             if (pairingProtocolClient.isPaired(device)) {
                 Log.d(TAG, "pairTv skipped because ${device.name} is already paired")
+                NativeRemoteDiagnostics.record("${device.name} already paired")
                 return NativePairingStatus(true, "Already paired")
             }
 
@@ -32,6 +33,7 @@ class TvPairingManager(
                     activeSessions[device.sessionKey()] = pairingProtocolClient.startPairing(device)
                 }
                 Log.d(TAG, "Pairing challenge started for ${device.name}")
+                NativeRemoteDiagnostics.record("Pairing started for ${device.name}")
                 NativePairingStatus(true, "Pairing started. Enter the code shown on your TV.")
             } else {
                 runWithTimeout(PAIRING_TIMEOUT_SECONDS, "Pairing timed out") {
@@ -42,12 +44,44 @@ class TvPairingManager(
                     }
                 }
                 Log.d(TAG, "Pairing completed for ${device.name}")
+                NativeRemoteDiagnostics.record("Paired ${device.name}")
                 NativePairingStatus(true, "Paired successfully")
             }
         } catch (error: Throwable) {
             activeSessions.remove(device.sessionKey())?.close()
             Log.w(TAG, "Pairing failed", error)
-            NativePairingStatus(false, error.cleanMessage("Pairing failed"))
+            val message = error.cleanMessage("Pairing failed")
+            NativeRemoteDiagnostics.setError(message)
+            NativePairingStatus(false, message)
+        }
+    }
+
+    fun forgetTv(device: NativeTvDevice): NativePairingStatus {
+        return try {
+            activeSessions.remove(device.sessionKey())?.close()
+            pairingProtocolClient.forgetDevice(device)
+            NativeRemoteDiagnostics.record("Forgot ${device.name}")
+            NativePairingStatus(true, "Forgot ${device.name}")
+        } catch (error: Throwable) {
+            val message = error.cleanMessage("Could not forget TV")
+            Log.w(TAG, "forgetTv failed", error)
+            NativeRemoteDiagnostics.setError(message)
+            NativePairingStatus(false, message)
+        }
+    }
+
+    fun resetPairingData(): NativePairingStatus {
+        return try {
+            activeSessions.values.forEach { it.close() }
+            activeSessions.clear()
+            pairingProtocolClient.resetPairingData()
+            NativeRemoteDiagnostics.record("Pairing data reset")
+            NativePairingStatus(true, "Pairing data reset")
+        } catch (error: Throwable) {
+            val message = error.cleanMessage("Could not reset pairing data")
+            Log.w(TAG, "resetPairingData failed", error)
+            NativeRemoteDiagnostics.setError(message)
+            NativePairingStatus(false, message)
         }
     }
 

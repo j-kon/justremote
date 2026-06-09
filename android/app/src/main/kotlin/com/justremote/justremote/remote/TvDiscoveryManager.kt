@@ -51,9 +51,11 @@ class TvDiscoveryManager(
 
             val discovered = devices.values.toList()
             Log.d(TAG, "scanForTvs finished with ${discovered.size} device(s)")
+            NativeRemoteDiagnostics.record("Scan found ${discovered.size} TV(s)")
             discovered
         } catch (error: Throwable) {
             Log.w(TAG, "scanForTvs failed; returning no devices", error)
+            NativeRemoteDiagnostics.setError(error.message ?: "Scan failed")
             emptyList()
         } finally {
             releaseMulticastLock()
@@ -117,6 +119,7 @@ class TvDiscoveryManager(
 
                     devices[device.id] = device
                     Log.d(TAG, "Android TV discovered ${device.name} at ${device.host}:${device.port}")
+                    NativeRemoteDiagnostics.record("Discovered ${device.name} at ${device.host}:${device.port}")
                 }
             }
 
