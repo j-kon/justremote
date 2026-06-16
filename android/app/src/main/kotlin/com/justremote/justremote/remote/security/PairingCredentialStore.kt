@@ -8,12 +8,15 @@ import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
+import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.SecureRandom
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.security.spec.PKCS8EncodedKeySpec
 import java.util.Date
+import javax.net.ssl.KeyManager
+import javax.net.ssl.KeyManagerFactory
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
@@ -27,11 +30,11 @@ class PairingCredentialStore(context: Context) {
 
     @Synchronized
     fun getOrCreateClientIdentity(): ClientIdentity {
-        val encodedPrivateKey = preferences.getString(KEY_PRIVATE_KEY, null)
-        val encodedCertificate = preferences.getString(KEY_CERTIFICATE, null)
+        val encodedPrivateKey = preferences.getString(LEGACY_KEY_PRIVATE_KEY, null)
+        val encodedCertificate = preferences.getString(LEGACY_KEY_CERTIFICATE, null)
         if (encodedPrivateKey != null && encodedCertificate != null) {
             return ClientIdentity(
-                privateKey = decodePrivateKey(encodedPrivateKey),
+                privateKey = decodeLegacyPrivateKey(encodedPrivateKey),
                 certificate = decodeCertificate(encodedCertificate)
             )
         }
@@ -42,11 +45,28 @@ class PairingCredentialStore(context: Context) {
         val certificate = createSelfSignedCertificate(keyPair)
 
         preferences.edit()
-            .putString(KEY_PRIVATE_KEY, encode(keyPair.private.encoded))
-            .putString(KEY_CERTIFICATE, encode(certificate.encoded))
+            .putString(LEGACY_KEY_PRIVATE_KEY, encode(keyPair.private.encoded))
+            .putString(LEGACY_KEY_CERTIFICATE, encode(certificate.encoded))
             .apply()
 
         return ClientIdentity(keyPair.private, certificate)
+    }
+
+    @Synchronized
+    fun getOrCreateClientKeyManagers(): Array<KeyManager> {
+        val identity = getOrCreateClientIdentity()
+        val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+            load(null, null)
+            setKeyEntry(
+                CLIENT_ALIAS,
+                identity.privateKey,
+                CharArray(0),
+                arrayOf(identity.certificate)
+            )
+        }
+        return KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+            .apply { init(keyStore, CharArray(0)) }
+            .keyManagers
     }
 
     fun savePairedDevice(device: NativeTvDevice, serverCertificate: X509Certificate) {
@@ -55,12 +75,30 @@ class PairingCredentialStore(context: Context) {
             .apply()
     }
 
+    fun removePairedDevice(device: NativeTvDevice) {
+        preferences.edit()
+            .remove(device.serverCertificateKey())
+            .apply()
+    }
+
+    fun clearPairingData() {
+        preferences.edit().clear().apply()
+    }
+
     fun getServerCertificate(device: NativeTvDevice): X509Certificate? {
         val encoded = preferences.getString(device.serverCertificateKey(), null) ?: return null
         return decodeCertificate(encoded)
     }
 
     fun isPaired(device: NativeTvDevice): Boolean = getServerCertificate(device) != null
+
+    @Synchronized
+    fun resetClientIdentity() {
+        preferences.edit()
+            .remove(LEGACY_KEY_PRIVATE_KEY)
+            .remove(LEGACY_KEY_CERTIFICATE)
+            .apply()
+    }
 
     private fun createSelfSignedCertificate(keyPair: KeyPair): X509Certificate {
         val now = System.currentTimeMillis()
@@ -77,7 +115,7 @@ class PairingCredentialStore(context: Context) {
         return JcaX509CertificateConverter().getCertificate(builder.build(signer))
     }
 
-    private fun decodePrivateKey(encoded: String): PrivateKey {
+    private fun decodeLegacyPrivateKey(encoded: String): PrivateKey {
         val bytes = Base64.decode(encoded, Base64.NO_WRAP)
         return KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(bytes))
     }
@@ -92,11 +130,13 @@ class PairingCredentialStore(context: Context) {
 
     private fun NativeTvDevice.serverCertificateKey(): String = "server_cert_${id}_${host}_$port"
 
-    private companion object {
-        const val KEY_PRIVATE_KEY = "client_private_key"
-        const val KEY_CERTIFICATE = "client_certificate"
-        const val ONE_DAY_MS = 24L * 60L * 60L * 1000L
-        const val TEN_YEARS_MS = 3650L * ONE_DAY_MS
+    companion object {
+        const val USES_ANDROID_KEYSTORE_FOR_CLIENT_TLS = false
+        const val CLIENT_ALIAS = "justremote_android_tv_remote_client"
+        private const val LEGACY_KEY_PRIVATE_KEY = "client_private_key"
+        private const val LEGACY_KEY_CERTIFICATE = "client_certificate"
+        private const val ONE_DAY_MS = 24L * 60L * 60L * 1000L
+        private const val TEN_YEARS_MS = 3650L * ONE_DAY_MS
     }
 }
 

@@ -22,12 +22,13 @@ class RemoteProtocolClient(
         check(credentialStore.isPaired(device)) {
             "TV is not paired. Pair ${device.name} before connecting."
         }
-        val socket = socketFactory.createSocket(device.host, REMOTE_PORT)
+        val remotePort = AndroidTvPorts.remotePort(device.port)
+        val socket = socketFactory.createSocket(
+            host = device.host,
+            port = remotePort,
+            readTimeoutMs = 0
+        )
         return RemoteConnection(device, socket).also { it.start() }
-    }
-
-    companion object {
-        const val REMOTE_PORT = 6466
     }
 }
 
@@ -44,16 +45,27 @@ class RemoteConnection(
         private set
 
     fun start() {
+        // After pairing, Remote Protocol v2 opens a mutually authenticated TLS
+        // connection on the discovered remote port. The TV sends configuration,
+        // active-feature, ping, and start messages; the client replies with the
+        // feature set it supports before key injection is usable.
         Thread({ readLoop() }, "JustRemote-${device.name}-remote").apply {
             isDaemon = true
             start()
         }
-        startedLatch.await(REMOTE_START_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val started = startedLatch.await(REMOTE_START_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        if (!started || isClosed) {
+            close()
+            error("Connection timed out")
+        }
     }
 
     @Synchronized
     fun sendCommand(command: String): Boolean {
+        check(!isClosed) { "Connection is closed" }
         val message = RemoteCommandMapper.toKeyInjectMessage(command) ?: return false
+        // Key presses are encoded as RemoteKeyInject messages with a SHORT
+        // direction, which Android TV treats like a normal remote-button press.
         ProtobufFramer.writeDelimited(socket.outputStream, message.toByteArray())
         return true
     }

@@ -19,6 +19,7 @@ class RemoteControlChannel {
             'host': device.host,
             'port': device.port,
             'name': device.name,
+            'type': device.type,
           });
       return response?['success'] == true;
     } on PlatformException catch (error) {
@@ -49,6 +50,33 @@ class RemoteControlChannel {
     }
   }
 
+  Future<bool> forgetTv(TvDevice device) async {
+    try {
+      final response = await _channel
+          .invokeMethod<Map<dynamic, dynamic>>('forgetTv', {
+            'deviceId': device.id,
+            'host': device.host,
+            'port': device.port,
+            'name': device.name,
+            'type': device.type,
+          });
+      return response?['success'] == true;
+    } on PlatformException catch (error) {
+      throw AppException('Unable to forget TV.', cause: error);
+    }
+  }
+
+  Future<bool> resetPairingData() async {
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'resetPairingData',
+      );
+      return response?['success'] == true;
+    } on PlatformException catch (error) {
+      throw AppException('Unable to reset pairing data.', cause: error);
+    }
+  }
+
   Future<Map<String, Object?>> getConnectionStatus() async {
     try {
       final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
@@ -57,6 +85,17 @@ class RemoteControlChannel {
       return Map<String, Object?>.from(response ?? const {});
     } on PlatformException catch (error) {
       throw AppException('Unable to read connection status.', cause: error);
+    }
+  }
+
+  Future<Map<String, Object?>> getDiagnostics() async {
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'getDiagnostics',
+      );
+      return Map<String, Object?>.from(response ?? const {});
+    } on PlatformException catch (error) {
+      throw AppException('Unable to read diagnostics.', cause: error);
     }
   }
 }

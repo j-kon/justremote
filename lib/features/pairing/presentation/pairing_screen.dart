@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../saved_tvs/data/saved_tvs_repository.dart';
@@ -21,6 +22,7 @@ class PairingScreen extends ConsumerStatefulWidget {
 
 class _PairingScreenState extends ConsumerState<PairingScreen> {
   final _codeController = TextEditingController();
+  final _codeFocus = FocusNode();
   final _pairingChannel = PairingChannel();
   PairingStatus _status = PairingStatus.idle;
   String? _message;
@@ -28,12 +30,14 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   @override
   void initState() {
     super.initState();
+    _codeController.addListener(() => setState(() {}));
     Future<void>.microtask(_startPairing);
   }
 
   @override
   void dispose() {
     _codeController.dispose();
+    _codeFocus.dispose();
     super.dispose();
   }
 
@@ -42,7 +46,6 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       _status = PairingStatus.pairing;
       _message = 'Starting pairing on ${widget.device.name}...';
     });
-
     try {
       final message = await _pairingChannel.startPairing(widget.device);
       if (!mounted) return;
@@ -68,25 +71,24 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       });
       return;
     }
-
     setState(() {
       _status = PairingStatus.pairing;
       _message = null;
     });
-
     try {
       final message = await _pairingChannel.pairTv(
         device: widget.device,
         pairingCode: code,
       );
-      await ref.read(savedTvsRepositoryProvider).saveTv(widget.device);
+      final pairedDevice = widget.device.copyWith(paired: true);
+      await ref.read(savedTvsRepositoryProvider).saveTv(pairedDevice);
       ref.invalidate(savedTvsProvider);
       setState(() {
         _status = PairingStatus.success;
         _message = message;
       });
-      if (mounted) context.go('/remote', extra: widget.device);
-    } catch (error) {
+      if (mounted) context.go('/remote', extra: pairedDevice);
+    } catch (_) {
       setState(() {
         _status = PairingStatus.failed;
         _message = 'Could not pair with ${widget.device.name}.';
@@ -97,65 +99,95 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   @override
   Widget build(BuildContext context) {
     final isPairing = _status == PairingStatus.pairing;
+    final code = _codeController.text;
+    final isCodeComplete = code.length == 6;
 
     return AppScaffold(
       title: 'Pair TV',
       body: ListView(
         padding: const EdgeInsets.all(22),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.tv_rounded,
-                    size: 36,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.device.name,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
+          // TV status card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.tv_rounded, size: 32, color: AppTheme.accent),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.device.name,
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.device.host,
-                          style: const TextStyle(color: Colors.white60),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.device.host,
+                        style: const TextStyle(
+                          color: AppTheme.textDim,
+                          fontSize: 12,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Pairing code',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _codeController,
-            keyboardType: TextInputType.text,
-            textInputAction: TextInputAction.done,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
-              LengthLimitingTextInputFormatter(6),
-            ],
-            decoration: const InputDecoration(
-              hintText: 'Enter code shown on TV',
+          const Text(
+            'A code appeared on your TV.\nEnter it below.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 13,
+              height: 1.5,
             ),
-            onSubmitted: (_) => _pair(),
+          ),
+          const SizedBox(height: 20),
+          // 6 segmented boxes driven by hidden TextField
+          GestureDetector(
+            onTap: () => _codeFocus.requestFocus(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(6, (i) {
+                final char = i < code.length ? code[i] : null;
+                final isActive = i == code.length && code.length < 6;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: CodeBox(char: char, isActive: isActive),
+                );
+              }),
+            ),
+          ),
+          // Hidden text field that drives the boxes
+          SizedBox(
+            height: 0,
+            child: Opacity(
+              opacity: 0,
+              child: TextField(
+                controller: _codeController,
+                focusNode: _codeFocus,
+                keyboardType: TextInputType.text,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]')),
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                onSubmitted: (_) => _pair(),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           AnimatedSwitcher(
@@ -165,21 +197,113 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 : Text(
                     _message!,
                     key: ValueKey(_message),
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: _status == PairingStatus.failed
                           ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.primary,
+                          : AppTheme.accent,
                     ),
                   ),
           ),
           const SizedBox(height: 24),
           PrimaryButton(
-            label: 'Pair TV',
+            label: 'Confirm',
             icon: Icons.link_rounded,
             isLoading: isPairing,
-            onPressed: isPairing ? null : _pair,
+            onPressed: (isPairing || !isCodeComplete) ? null : _pair,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class CodeBox extends StatelessWidget {
+  const CodeBox({required this.char, required this.isActive, super.key});
+
+  final String? char;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: 42,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isActive ? AppTheme.accent : AppTheme.glassButtonBorder,
+          width: isActive ? 2.0 : 1.0,
+        ),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: AppTheme.accent.withValues(alpha: 0.4),
+                  blurRadius: 6,
+                ),
+              ]
+            : null,
+      ),
+      child: Center(
+        child: isActive
+            ? const _BlinkingCursor()
+            : (char != null
+                  ? Text(
+                      char!.toUpperCase(),
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : null),
+      ),
+    );
+  }
+}
+
+class _BlinkingCursor extends StatefulWidget {
+  const _BlinkingCursor();
+
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, _) => Opacity(
+        opacity: _ctrl.value > 0.5 ? 1.0 : 0.0,
+        child: Container(
+          width: 2,
+          height: 22,
+          decoration: BoxDecoration(
+            color: AppTheme.accent,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
       ),
     );
   }

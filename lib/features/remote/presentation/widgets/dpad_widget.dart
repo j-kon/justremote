@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/remote_command.dart';
 
 class DpadWidget extends StatelessWidget {
@@ -19,62 +21,53 @@ class DpadWidget extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF121722),
-                  borderRadius: BorderRadius.circular(34),
-                  border: Border.all(color: Colors.white10),
+                  color: AppTheme.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.glassButtonBorder),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x40000000),
+                      blurRadius: 20,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
               ),
               Positioned(
                 top: 0,
-                child: _DpadButton(
+                child: _DpadArrow(
                   icon: Icons.keyboard_arrow_up_rounded,
                   size: buttonSize,
-                  onTap: () => onCommand(RemoteCommand.up),
+                  onCommand: () => onCommand(RemoteCommand.up),
                 ),
               ),
               Positioned(
                 bottom: 0,
-                child: _DpadButton(
+                child: _DpadArrow(
                   icon: Icons.keyboard_arrow_down_rounded,
                   size: buttonSize,
-                  onTap: () => onCommand(RemoteCommand.down),
+                  onCommand: () => onCommand(RemoteCommand.down),
                 ),
               ),
               Positioned(
                 left: 0,
-                child: _DpadButton(
+                child: _DpadArrow(
                   icon: Icons.keyboard_arrow_left_rounded,
                   size: buttonSize,
-                  onTap: () => onCommand(RemoteCommand.left),
+                  onCommand: () => onCommand(RemoteCommand.left),
                 ),
               ),
               Positioned(
                 right: 0,
-                child: _DpadButton(
+                child: _DpadArrow(
                   icon: Icons.keyboard_arrow_right_rounded,
                   size: buttonSize,
-                  onTap: () => onCommand(RemoteCommand.right),
+                  onCommand: () => onCommand(RemoteCommand.right),
                 ),
               ),
               SizedBox.square(
                 dimension: buttonSize,
-                child: Material(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => onCommand(RemoteCommand.select),
-                    child: const Center(
-                      child: Text(
-                        'OK',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: _OkButton(onCommand: () => onCommand(RemoteCommand.select)),
               ),
             ],
           );
@@ -84,22 +77,130 @@ class DpadWidget extends StatelessWidget {
   }
 }
 
-class _DpadButton extends StatelessWidget {
-  const _DpadButton({
+class _DpadArrow extends StatefulWidget {
+  const _DpadArrow({
     required this.icon,
     required this.size,
-    required this.onTap,
+    required this.onCommand,
   });
 
   final IconData icon;
   final double size;
-  final VoidCallback onTap;
+  final VoidCallback onCommand;
+
+  @override
+  State<_DpadArrow> createState() => _DpadArrowState();
+}
+
+class _DpadArrowState extends State<_DpadArrow> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: size,
-      child: IconButton(onPressed: onTap, icon: Icon(icon, size: 36)),
+    return GestureDetector(
+      onTapDown: (_) {
+        HapticFeedback.lightImpact();
+        widget.onCommand();
+        setState(() => _pressed = true);
+      },
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: _pressed
+            ? const Duration(milliseconds: 80)
+            : const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: _pressed
+              ? Border.all(
+                  color: AppTheme.accent.withValues(alpha: 0.5),
+                  width: 1.5,
+                )
+              : null,
+        ),
+        child: Icon(
+          widget.icon,
+          size: widget.size * 0.45,
+          color: _pressed ? AppTheme.accent : AppTheme.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _OkButton extends StatefulWidget {
+  const _OkButton({required this.onCommand});
+
+  final VoidCallback onCommand;
+
+  @override
+  State<_OkButton> createState() => _OkButtonState();
+}
+
+class _OkButtonState extends State<_OkButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) {
+        HapticFeedback.lightImpact();
+        widget.onCommand();
+        setState(() => _pressed = true);
+      },
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: _pressed
+            ? const Duration(milliseconds: 80)
+            : const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppTheme.accentLight, AppTheme.accentDark],
+          ),
+          boxShadow: _pressed
+              ? [
+                  BoxShadow(
+                    color: AppTheme.accent.withValues(alpha: 0.25),
+                    spreadRadius: 5,
+                    blurRadius: 0,
+                  ),
+                  BoxShadow(
+                    color: AppTheme.accent.withValues(alpha: 0.1),
+                    spreadRadius: 10,
+                    blurRadius: 0,
+                  ),
+                  BoxShadow(
+                    color: AppTheme.accent.withValues(alpha: 0.5),
+                    blurRadius: 14,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: AppTheme.accent.withValues(alpha: 0.5),
+                    blurRadius: 14,
+                  ),
+                ],
+        ),
+        child: const Center(
+          child: Text(
+            'OK',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 12,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

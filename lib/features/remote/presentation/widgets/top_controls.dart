@@ -11,14 +11,12 @@ class TopControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         RemoteButtonWidget(
           label: 'Power',
           icon: Icons.power_settings_new_rounded,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.error.withValues(alpha: 0.22),
+          isPower: true,
           onPressed: () => onCommand(RemoteCommand.power),
         ),
         RemoteButtonWidget(

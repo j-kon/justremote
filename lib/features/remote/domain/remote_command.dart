@@ -12,7 +12,13 @@ enum RemoteCommand {
   volumeDown('volumeDown'),
   mute('mute'),
   channelUp('channelUp'),
-  channelDown('channelDown');
+  channelDown('channelDown'),
+  mediaPlayPause('mediaPlayPause'),
+  mediaStop('mediaStop'),
+  mediaNext('mediaNext'),
+  mediaPrevious('mediaPrevious'),
+  mediaRewind('mediaRewind'),
+  mediaFastForward('mediaFastForward');
 
   const RemoteCommand(this.wireName);
 
