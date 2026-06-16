@@ -77,7 +77,8 @@ class _RemoteScreenState extends State<RemoteScreen> {
   Future<void> _sendText(String text) async {
     try {
       if (!_connected && !await _connect()) return;
-      await _channel.sendText(text);
+      final sent = await _channel.sendText(text);
+      if (!sent) throw Exception('Failed to send text');
     } catch (_) {
       if (!mounted) return;
       setState(() => _connected = false);
@@ -90,7 +91,8 @@ class _RemoteScreenState extends State<RemoteScreen> {
   Future<void> _launchApp(String appLink) async {
     try {
       if (!_connected && !await _connect()) return;
-      await _channel.launchApp(appLink);
+      final launched = await _channel.launchApp(appLink);
+      if (!launched) throw Exception('Failed to launch app');
     } catch (_) {
       if (!mounted) return;
       setState(() => _connected = false);

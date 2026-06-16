@@ -62,12 +62,23 @@ class TvCommandManager(
         )
     }
 
+    private fun ensureConnected(): Boolean {
+        val activeConnection = connection
+        if (activeConnection != null && !activeConnection.isClosed) {
+            return true
+        }
+        val device = connectedDevice ?: return false
+        Log.d(TAG, "Connection is closed or null. Attempting automatic reconnection to ${device.name}...")
+        val result = connectToTv(device)
+        return result["success"] == true
+    }
+
     fun sendCommand(command: String): Map<String, Any> {
         Log.d(TAG, "sendCommand command=$command device=${connectedDevice?.name}")
-        val activeConnection = connection
-        if (activeConnection == null || activeConnection.isClosed) {
+        if (!ensureConnected()) {
             return mapOf("success" to false, "message" to "Not connected")
         }
+        val activeConnection = connection ?: return mapOf("success" to false, "message" to "Not connected")
         return try {
             val success = runWithTimeout(COMMAND_TIMEOUT_SECONDS, "Command timed out") {
                 activeConnection.sendCommand(command)
@@ -89,10 +100,10 @@ class TvCommandManager(
 
     fun sendText(text: String): Map<String, Any> {
         Log.d(TAG, "sendText text=$text device=${connectedDevice?.name}")
-        val activeConnection = connection
-        if (activeConnection == null || activeConnection.isClosed) {
+        if (!ensureConnected()) {
             return mapOf("success" to false, "message" to "Not connected")
         }
+        val activeConnection = connection ?: return mapOf("success" to false, "message" to "Not connected")
         return try {
             val success = runWithTimeout(COMMAND_TIMEOUT_SECONDS, "Text command timed out") {
                 activeConnection.sendText(text)
@@ -111,10 +122,10 @@ class TvCommandManager(
 
     fun launchApp(appLink: String): Map<String, Any> {
         Log.d(TAG, "launchApp appLink=$appLink device=${connectedDevice?.name}")
-        val activeConnection = connection
-        if (activeConnection == null || activeConnection.isClosed) {
+        if (!ensureConnected()) {
             return mapOf("success" to false, "message" to "Not connected")
         }
+        val activeConnection = connection ?: return mapOf("success" to false, "message" to "Not connected")
         return try {
             val success = runWithTimeout(COMMAND_TIMEOUT_SECONDS, "App launch timed out") {
                 activeConnection.launchApp(appLink)
