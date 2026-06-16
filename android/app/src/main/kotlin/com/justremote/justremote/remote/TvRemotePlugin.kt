@@ -44,6 +44,8 @@ class TvRemotePlugin(
             "connectToTv",
             "disconnectTv",
             "sendCommand",
+            "sendText",
+            "launchApp",
             "forgetTv",
             "resetPairingData",
             "getConnectionStatus",
@@ -86,6 +88,14 @@ class TvRemotePlugin(
                     val command = call.argument<String>("command").orEmpty()
                     result.success(commandManager.sendCommand(command))
                 }
+                "sendText" -> {
+                    val text = call.argument<String>("text").orEmpty()
+                    result.success(commandManager.sendText(text))
+                }
+                "launchApp" -> {
+                    val appLink = call.argument<String>("appLink").orEmpty()
+                    result.success(commandManager.launchApp(appLink))
+                }
                 "getConnectionStatus" -> {
                     result.success(commandManager.getConnectionStatus())
                 }
@@ -120,7 +130,9 @@ class TvRemotePlugin(
             "disconnectTv",
             "forgetTv",
             "resetPairingData" -> mapOf("success" to false, "message" to message)
-            "sendCommand" -> mapOf("success" to false, "message" to message)
+            "sendCommand",
+            "sendText",
+            "launchApp" -> mapOf("success" to false, "message" to message)
             "getConnectionStatus" -> mapOf("connected" to false, "deviceName" to null)
             "getDiagnostics" -> mapOf(
                 "connected" to false,

@@ -61,31 +61,38 @@ class _RemoteButtonWidgetState extends State<RemoteButtonWidget> {
           height: widget.size,
           decoration: BoxDecoration(
             color: widget.isPower
-                ? AppTheme.powerRed.withValues(alpha: 0.15)
-                : AppTheme.surfaceRaised,
-            borderRadius: BorderRadius.circular(16),
+                ? AppTheme.powerRed.withValues(alpha: _pressed ? 0.3 : 0.15)
+                : AppTheme.surfaceRaised.withValues(alpha: _pressed ? 0.35 : 0.15),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: _pressed
-                  ? borderColor.withValues(alpha: 0.7)
+                  ? borderColor.withValues(alpha: 0.8)
                   : (widget.isPower
-                      ? AppTheme.powerRed.withValues(alpha: 0.25)
+                      ? AppTheme.powerRed.withValues(alpha: 0.3)
                       : AppTheme.glassButtonBorder),
               width: _pressed ? 1.5 : 1.0,
             ),
-            boxShadow: _pressed
-                ? [
-                    BoxShadow(
-                      color: borderColor.withValues(alpha: 0.15),
-                      spreadRadius: 3,
-                      blurRadius: 0,
-                    ),
-                  ]
-                : null,
+            boxShadow: [
+              if (_pressed)
+                BoxShadow(
+                  color: borderColor.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                )
+              else
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+            ],
           ),
           child: Icon(
             widget.icon,
             size: widget.size * 0.38,
-            color: widget.isPower ? AppTheme.powerRed : AppTheme.textPrimary,
+            color: _pressed
+                ? (widget.isPower ? AppTheme.powerRed : AppTheme.accent)
+                : (widget.isPower ? AppTheme.powerRed : AppTheme.textPrimary),
           ),
         ),
       ),

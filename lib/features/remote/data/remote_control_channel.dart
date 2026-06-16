@@ -50,6 +50,30 @@ class RemoteControlChannel {
     }
   }
 
+  Future<bool> sendText(String text) async {
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'sendText',
+        {'text': text},
+      );
+      return response?['success'] == true;
+    } on PlatformException catch (error) {
+      throw AppException('Unable to send text.', cause: error);
+    }
+  }
+
+  Future<bool> launchApp(String appLink) async {
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'launchApp',
+        {'appLink': appLink},
+      );
+      return response?['success'] == true;
+    } on PlatformException catch (error) {
+      throw AppException('Unable to launch app.', cause: error);
+    }
+  }
+
   Future<bool> forgetTv(TvDevice device) async {
     try {
       final response = await _channel

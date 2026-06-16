@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingLeft="12dp"
+    android:paddingRight="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:background="@drawable/bg_widget">
+
+    <TextView
+        android:id="@+id/txt_widget_tv_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="JustRemote"
+        android:textColor="#B3FFFFFF"
+        android:textSize="11sp"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginBottom="4dp"
+        android:ellipsize="end"
+        android:singleLine="true"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <ImageButton
+            android:id="@+id/btn_power"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:src="@drawable/ic_widget_power"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Power" />
+
+        <ImageButton
+            android:id="@+id/btn_vol_down"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:src="@drawable/ic_widget_vol_down"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Volume Down" />
+
+        <ImageButton
+            android:id="@+id/btn_mute"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:src="@drawable/ic_widget_mute"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Mute" />
+
+        <ImageButton
+            android:id="@+id/btn_vol_up"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:src="@drawable/ic_widget_vol_up"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Volume Up" />
+    </LinearLayout>
+</LinearLayout>

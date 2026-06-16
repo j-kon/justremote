@@ -30,6 +30,7 @@ enum RemoteKeyCode {
   KEYCODE_MEDIA_PREVIOUS = 88;
   KEYCODE_MEDIA_REWIND = 89;
   KEYCODE_MEDIA_FAST_FORWARD = 90;
+  KEYCODE_SEARCH = 84;
 }
 
 enum RemoteDirection {
@@ -75,11 +76,48 @@ message RemoteStart {
   bool started = 1;
 }
 
+message RemoteAppLinkLaunchRequest {
+  string app_link = 1;
+}
+
+message RemoteImeObject {
+  int32 start = 1;
+  int32 end = 2;
+  string value = 3;
+}
+
+message RemoteEditInfo {
+  int32 insert = 1;
+  RemoteImeObject text_field_status = 2;
+}
+
+message RemoteImeBatchEdit {
+  int32 ime_counter = 1;
+  int32 field_counter = 2;
+  repeated RemoteEditInfo edit_info = 3;
+}
+
+message RemoteTextFieldStatus {
+  int32 counter_field = 1;
+  string value = 2;
+  int32 start = 3;
+  int32 end = 4;
+  int32 int5 = 5;
+  string label = 6;
+}
+
+message RemoteImeShowRequest {
+  RemoteTextFieldStatus remote_text_field_status = 2;
+}
+
 message RemoteMessage {
   RemoteConfigure remote_configure = 1;
   RemoteSetActive remote_set_active = 2;
   RemotePingRequest remote_ping_request = 8;
   RemotePingResponse remote_ping_response = 9;
   RemoteKeyInject remote_key_inject = 10;
+  RemoteImeBatchEdit remote_ime_batch_edit = 21;
+  RemoteImeShowRequest remote_ime_show_request = 22;
   RemoteStart remote_start = 40;
+  RemoteAppLinkLaunchRequest remote_app_link_launch_request = 90;
 }

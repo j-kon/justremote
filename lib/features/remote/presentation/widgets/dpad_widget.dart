@@ -21,13 +21,18 @@ class DpadWidget extends StatelessWidget {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AppTheme.surfaceRaised.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                   border: Border.all(color: AppTheme.glassButtonBorder),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x40000000),
-                      blurRadius: 20,
+                      color: AppTheme.accent.withValues(alpha: 0.05),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                    ),
+                    const BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 15,
                       offset: Offset(0, 4),
                     ),
                   ],
@@ -114,12 +119,20 @@ class _DpadArrowState extends State<_DpadArrow> {
         height: widget.size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
+          color: _pressed ? AppTheme.accent.withValues(alpha: 0.1) : Colors.transparent,
           border: _pressed
               ? Border.all(
-                  color: AppTheme.accent.withValues(alpha: 0.5),
+                  color: AppTheme.accent.withValues(alpha: 0.6),
                   width: 1.5,
                 )
               : null,
+          boxShadow: [
+            if (_pressed)
+              BoxShadow(
+                color: AppTheme.accent.withValues(alpha: 0.15),
+                blurRadius: 10,
+              ),
+          ],
         ),
         child: Icon(
           widget.icon,

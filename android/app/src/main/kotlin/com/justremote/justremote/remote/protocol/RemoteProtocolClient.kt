@@ -12,10 +12,11 @@ import com.justremote.justremote.remote.security.TlsSocketFactory
 import java.io.EOFException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.SSLSocket
 
 class RemoteProtocolClient(
-    private val credentialStore: PairingCredentialStore,
+    val credentialStore: PairingCredentialStore,
     private val socketFactory: TlsSocketFactory
 ) {
     fun connect(device: NativeTvDevice): RemoteConnection {
@@ -44,6 +45,9 @@ class RemoteConnection(
     var isClosed: Boolean = false
         private set
 
+    private val imeCounter = AtomicInteger(0)
+    private val fieldCounter = AtomicInteger(0)
+
     fun start() {
         // After pairing, Remote Protocol v2 opens a mutually authenticated TLS
         // connection on the discovered remote port. The TV sends configuration,
@@ -67,6 +71,47 @@ class RemoteConnection(
         // Key presses are encoded as RemoteKeyInject messages with a SHORT
         // direction, which Android TV treats like a normal remote-button press.
         ProtobufFramer.writeDelimited(socket.outputStream, message.toByteArray())
+        return true
+    }
+
+    @Synchronized
+    fun sendText(text: String): Boolean {
+        check(!isClosed) { "Connection is closed" }
+        val currentImeCounter = imeCounter.incrementAndGet()
+        val currentFieldCounter = fieldCounter.get()
+        val editInfo = com.justremote.justremote.remote.protocol.protobuf.RemoteMessageProto.RemoteEditInfo.newBuilder()
+            .setInsert(1)
+            .setTextFieldStatus(
+                com.justremote.justremote.remote.protocol.protobuf.RemoteMessageProto.RemoteImeObject.newBuilder()
+                    .setStart(text.length)
+                    .setEnd(text.length)
+                    .setValue(text)
+            )
+            .build()
+        val batchEdit = com.justremote.justremote.remote.protocol.protobuf.RemoteMessageProto.RemoteImeBatchEdit.newBuilder()
+            .setImeCounter(currentImeCounter)
+            .setFieldCounter(currentFieldCounter)
+            .addEditInfo(editInfo)
+            .build()
+        val message = RemoteMessage.newBuilder()
+            .setRemoteImeBatchEdit(batchEdit)
+            .build()
+        send(message)
+        Log.d(TAG, "Sent text batch edit: '$text', ime=$currentImeCounter, field=$currentFieldCounter")
+        return true
+    }
+
+    @Synchronized
+    fun launchApp(appLink: String): Boolean {
+        check(!isClosed) { "Connection is closed" }
+        val launchRequest = com.justremote.justremote.remote.protocol.protobuf.RemoteMessageProto.RemoteAppLinkLaunchRequest.newBuilder()
+            .setAppLink(appLink)
+            .build()
+        val message = RemoteMessage.newBuilder()
+            .setRemoteAppLinkLaunchRequest(launchRequest)
+            .build()
+        send(message)
+        Log.d(TAG, "Sent app link launch request: '$appLink'")
         return true
     }
 
@@ -127,6 +172,12 @@ class RemoteConnection(
                         .build()
                 )
             }
+            message.hasRemoteImeShowRequest() -> {
+                val status = message.remoteImeShowRequest.remoteTextFieldStatus
+                imeCounter.set(status.counterField)
+                fieldCounter.set(status.counterField)
+                Log.d(TAG, "IME Show Request received: counter=${status.counterField}, text='${status.value}'")
+            }
             message.hasRemoteStart() -> {
                 isStarted = message.remoteStart.started
                 startedLatch.countDown()
@@ -149,9 +200,11 @@ class RemoteConnection(
         const val TAG = "RemoteConnection"
         const val FEATURE_PING = 1
         const val FEATURE_KEY = 2
+        const val FEATURE_VOICE = 4
+        const val FEATURE_IME = 8
         const val FEATURE_POWER = 32
         const val FEATURE_VOLUME = 64
-        const val REQUESTED_FEATURES = FEATURE_PING or FEATURE_KEY or FEATURE_POWER or FEATURE_VOLUME
+        const val REQUESTED_FEATURES = FEATURE_PING or FEATURE_KEY or FEATURE_VOICE or FEATURE_IME or FEATURE_POWER or FEATURE_VOLUME
         const val REMOTE_START_TIMEOUT_SECONDS = 4L
     }
 }

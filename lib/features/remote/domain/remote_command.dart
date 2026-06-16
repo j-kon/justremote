@@ -18,7 +18,8 @@ enum RemoteCommand {
   mediaNext('mediaNext'),
   mediaPrevious('mediaPrevious'),
   mediaRewind('mediaRewind'),
-  mediaFastForward('mediaFastForward');
+  mediaFastForward('mediaFastForward'),
+  search('search');
 
   const RemoteCommand(this.wireName);
 
