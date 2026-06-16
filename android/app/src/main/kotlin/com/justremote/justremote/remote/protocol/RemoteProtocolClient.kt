@@ -23,7 +23,11 @@ class RemoteProtocolClient(
             "TV is not paired. Pair ${device.name} before connecting."
         }
         val remotePort = AndroidTvPorts.remotePort(device.port)
-        val socket = socketFactory.createSocket(device.host, remotePort)
+        val socket = socketFactory.createSocket(
+            host = device.host,
+            port = remotePort,
+            readTimeoutMs = 0
+        )
         return RemoteConnection(device, socket).also { it.start() }
     }
 }

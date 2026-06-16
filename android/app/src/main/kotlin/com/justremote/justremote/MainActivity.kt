@@ -74,7 +74,16 @@ class MainActivity : FlutterActivity(), DiscoveryPermissionRequester {
         return DiscoveryPermissionPolicy.missingPermissions(
             sdkInt = Build.VERSION.SDK_INT,
             isGranted = ::isGranted
-        )
+        ).filter { isPermissionDefined(it) }
+    }
+
+    private fun isPermissionDefined(permission: String): Boolean {
+        return try {
+            packageManager.getPermissionInfo(permission, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
     }
 
     private fun isGranted(permission: String): Boolean =

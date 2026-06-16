@@ -274,7 +274,16 @@ class TvDiscoveryManager(
         return DiscoveryPermissionPolicy.missingPermissions(
             sdkInt = Build.VERSION.SDK_INT,
             isGranted = ::isPermissionGranted
-        )
+        ).filter { isPermissionDefined(it) }
+    }
+
+    private fun isPermissionDefined(permission: String): Boolean {
+        return try {
+            context.packageManager.getPermissionInfo(permission, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
     }
 
     private fun isPermissionGranted(permission: String): Boolean {
