@@ -6,7 +6,9 @@ import '../../../shared/widgets/app_scaffold.dart';
 import '../../tv_discovery/domain/tv_device.dart';
 import '../data/remote_control_channel.dart';
 import '../domain/remote_command.dart';
+import 'widgets/apps_tab.dart';
 import 'widgets/dpad_widget.dart';
+import 'widgets/gesture_trackpad.dart';
 import 'widgets/input_tab.dart';
 import 'widgets/media_tab.dart';
 import 'widgets/status_bar.dart';
@@ -27,6 +29,7 @@ class _RemoteScreenState extends State<RemoteScreen> {
   bool _connected = false;
   String? _deviceName;
   int _tabIndex = 0;
+  bool _showDpad = true;
 
   @override
   void initState() {
@@ -71,14 +74,43 @@ class _RemoteScreenState extends State<RemoteScreen> {
     }
   }
 
-  // Placeholder until the keyboard-input feature (other plan) is wired up.
-  void _sendText(String text) {}
+  Future<void> _sendText(String text) async {
+    try {
+      if (!_connected && !await _connect()) return;
+      await _channel.sendText(text);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _connected = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connection lost. Try again.')),
+      );
+    }
+  }
+
+  Future<void> _launchApp(String appLink) async {
+    try {
+      if (!_connected && !await _connect()) return;
+      await _channel.launchApp(appLink);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _connected = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connection lost. Try again.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: '',
       actions: [
+        if (_tabIndex == 0)
+          IconButton(
+            tooltip: _showDpad ? 'Switch to Trackpad' : 'Switch to D-pad',
+            icon: Icon(_showDpad ? Icons.touch_app_rounded : Icons.sports_esports_rounded),
+            onPressed: () => setState(() => _showDpad = !_showDpad),
+          ),
         IconButton(
           tooltip: 'Saved TVs',
           icon: const Icon(Icons.devices_rounded),
@@ -110,22 +142,29 @@ class _RemoteScreenState extends State<RemoteScreen> {
             child: IndexedStack(
               index: _tabIndex,
               children: [
-                // Remote tab — D-pad dominant
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size = constraints.maxHeight.clamp(200.0, 300.0);
-                    return Center(
-                      child: SizedBox.square(
-                        dimension: size,
-                        child: DpadWidget(onCommand: _send),
+                // Remote tab — D-pad or Gesture Touchpad
+                _showDpad
+                    ? LayoutBuilder(
+                        builder: (context, constraints) {
+                          final size = constraints.maxHeight.clamp(200.0, 300.0);
+                          return Center(
+                            child: SizedBox.square(
+                              dimension: size,
+                              child: DpadWidget(onCommand: _send),
+                            ),
+                          );
+                        },
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                        child: GestureTrackpad(onCommand: _send),
                       ),
-                    );
-                  },
-                ),
                 // Media tab
                 MediaTab(onCommand: _send),
                 // Input tab
                 InputTab(onCommand: _send, onSendText: _sendText),
+                // Apps tab
+                AppsTab(onLaunchApp: _launchApp),
               ],
             ),
           ),
@@ -178,6 +217,12 @@ class _BottomTabBar extends StatelessWidget {
             label: 'Input',
             selected: selectedIndex == 2,
             onTap: () => onTab(2),
+          ),
+          _Tab(
+            icon: Icons.apps_rounded,
+            label: 'Apps',
+            selected: selectedIndex == 3,
+            onTap: () => onTab(3),
           ),
         ],
       ),

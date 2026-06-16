@@ -24,6 +24,11 @@ class TvCommandManager(
             }
             connection = newConnection
             connectedDevice = device
+            try {
+                remoteProtocolClient.credentialStore.saveLastConnectedTv(device)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to save last connected TV", e)
+            }
             Log.d(TAG, "connectToTv connected to ${device.name}")
             NativeRemoteDiagnostics.setConnection(true, device.name)
 
@@ -78,6 +83,50 @@ class TvCommandManager(
             Log.w(TAG, "sendCommand failed", error)
             val message = error.cleanMessage("Command failed")
             NativeRemoteDiagnostics.setError(message)
+            mapOf("success" to false, "message" to message)
+        }
+    }
+
+    fun sendText(text: String): Map<String, Any> {
+        Log.d(TAG, "sendText text=$text device=${connectedDevice?.name}")
+        val activeConnection = connection
+        if (activeConnection == null || activeConnection.isClosed) {
+            return mapOf("success" to false, "message" to "Not connected")
+        }
+        return try {
+            val success = runWithTimeout(COMMAND_TIMEOUT_SECONDS, "Text command timed out") {
+                activeConnection.sendText(text)
+            }
+            if (success) {
+                mapOf("success" to true)
+            } else {
+                mapOf("success" to false, "message" to "Failed to send text")
+            }
+        } catch (error: Throwable) {
+            Log.w(TAG, "sendText failed", error)
+            val message = error.cleanMessage("Text command failed")
+            mapOf("success" to false, "message" to message)
+        }
+    }
+
+    fun launchApp(appLink: String): Map<String, Any> {
+        Log.d(TAG, "launchApp appLink=$appLink device=${connectedDevice?.name}")
+        val activeConnection = connection
+        if (activeConnection == null || activeConnection.isClosed) {
+            return mapOf("success" to false, "message" to "Not connected")
+        }
+        return try {
+            val success = runWithTimeout(COMMAND_TIMEOUT_SECONDS, "App launch timed out") {
+                activeConnection.launchApp(appLink)
+            }
+            if (success) {
+                mapOf("success" to true)
+            } else {
+                mapOf("success" to false, "message" to "Failed to launch app")
+            }
+        } catch (error: Throwable) {
+            Log.w(TAG, "launchApp failed", error)
+            val message = error.cleanMessage("App launch failed")
             mapOf("success" to false, "message" to message)
         }
     }

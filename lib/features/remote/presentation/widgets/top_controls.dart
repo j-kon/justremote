@@ -25,6 +25,11 @@ class TopControls extends StatelessWidget {
           onPressed: () => onCommand(RemoteCommand.back),
         ),
         RemoteButtonWidget(
+          label: 'Voice Search',
+          icon: Icons.mic_rounded,
+          onPressed: () => onCommand(RemoteCommand.search),
+        ),
+        RemoteButtonWidget(
           label: 'Home',
           icon: Icons.home_rounded,
           onPressed: () => onCommand(RemoteCommand.home),

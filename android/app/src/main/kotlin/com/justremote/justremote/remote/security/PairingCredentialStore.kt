@@ -92,6 +92,48 @@ class PairingCredentialStore(context: Context) {
 
     fun isPaired(device: NativeTvDevice): Boolean = getServerCertificate(device) != null
 
+    fun saveLastConnectedTv(device: NativeTvDevice) {
+        preferences.edit()
+            .putString("last_connected_tv_id", device.id)
+            .putString("last_connected_tv_name", device.name)
+            .putString("last_connected_tv_host", device.host)
+            .putInt("last_connected_tv_port", device.port)
+            .putString("last_connected_tv_type", device.type)
+            .apply()
+    }
+
+    fun getLastConnectedTv(): NativeTvDevice? {
+        val id = preferences.getString("last_connected_tv_id", null) ?: return null
+        val name = preferences.getString("last_connected_tv_name", "Android TV") ?: "Android TV"
+        val host = preferences.getString("last_connected_tv_host", "") ?: ""
+        val port = preferences.getInt("last_connected_tv_port", 6466)
+        val type = preferences.getString("last_connected_tv_type", "android_tv") ?: "android_tv"
+        return NativeTvDevice(id = id, name = name, host = host, port = port, type = type)
+    }
+
+    fun getFallbackTv(context: Context): NativeTvDevice? {
+        try {
+            val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val savedTvsSet = flutterPrefs.getStringSet("flutter.saved_tvs", null)
+            if (savedTvsSet != null && savedTvsSet.isNotEmpty()) {
+                val firstJson = savedTvsSet.firstOrNull()
+                if (firstJson != null) {
+                    val obj = org.json.JSONObject(firstJson)
+                    return NativeTvDevice(
+                        id = obj.optString("id", ""),
+                        name = obj.optString("name", "Android TV"),
+                        host = obj.optString("host", ""),
+                        port = obj.optInt("port", 6466),
+                        type = obj.optString("type", "android_tv")
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PairingCredentialStore", "Failed to parse fallback TV", e)
+        }
+        return null
+    }
+
     @Synchronized
     fun resetClientIdentity() {
         preferences.edit()

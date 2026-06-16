@@ -27,6 +27,7 @@ object RemoteCommandMapper {
         "mediaPrevious" to RemoteKeyCode.KEYCODE_MEDIA_PREVIOUS,
         "mediaRewind" to RemoteKeyCode.KEYCODE_MEDIA_REWIND,
         "mediaFastForward" to RemoteKeyCode.KEYCODE_MEDIA_FAST_FORWARD,
+        "search" to RemoteKeyCode.KEYCODE_SEARCH,
     )
 
     fun toKeyCode(command: String): RemoteKeyCode? = keyCodes[command]
