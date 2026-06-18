@@ -12,15 +12,32 @@ import java.util.concurrent.TimeoutException
 class TvCommandManager(
     private val remoteProtocolClient: RemoteProtocolClient
 ) {
+    interface ConnectionListener {
+        fun onConnectionClosed()
+    }
+
+    private var connectionListener: ConnectionListener? = null
     private var connectedDevice: NativeTvDevice? = null
     private var connection: RemoteConnection? = null
     private val commandExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+
+    fun setConnectionListener(listener: ConnectionListener) {
+        this.connectionListener = listener
+    }
 
     fun connectToTv(device: NativeTvDevice): Map<String, Any> {
         return try {
             val newConnection = runWithTimeout(CONNECTION_TIMEOUT_SECONDS, "Connection timed out") {
                 connection?.close()
-                remoteProtocolClient.connect(device)
+                remoteProtocolClient.connect(device, onClosed = {
+                    Log.d(TAG, "Connection closed by TV for ${device.name}")
+                    commandExecutor.execute {
+                        connection = null
+                        connectedDevice = null
+                        NativeRemoteDiagnostics.setConnection(false, null)
+                        connectionListener?.onConnectionClosed()
+                    }
+                })
             }
             connection = newConnection
             connectedDevice = device

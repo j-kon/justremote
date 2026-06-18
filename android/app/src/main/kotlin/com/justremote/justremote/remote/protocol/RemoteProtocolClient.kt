@@ -19,7 +19,7 @@ class RemoteProtocolClient(
     val credentialStore: PairingCredentialStore,
     private val socketFactory: TlsSocketFactory
 ) {
-    fun connect(device: NativeTvDevice): RemoteConnection {
+    fun connect(device: NativeTvDevice, onClosed: (() -> Unit)? = null): RemoteConnection {
         check(credentialStore.isPaired(device)) {
             "TV is not paired. Pair ${device.name} before connecting."
         }
@@ -29,13 +29,14 @@ class RemoteProtocolClient(
             port = remotePort,
             readTimeoutMs = 0
         )
-        return RemoteConnection(device, socket).also { it.start() }
+        return RemoteConnection(device, socket, onClosed).also { it.start() }
     }
 }
 
 class RemoteConnection(
     val device: NativeTvDevice,
-    private val socket: SSLSocket
+    private val socket: SSLSocket,
+    private val onClosed: (() -> Unit)? = null
 ) : AutoCloseable {
     private val startedLatch = CountDownLatch(1)
     @Volatile
@@ -126,8 +127,12 @@ class RemoteConnection(
         } catch (error: Throwable) {
             if (!isClosed) Log.w(TAG, "Remote read loop failed", error)
         } finally {
+            val wasClosed = isClosed
             isClosed = true
             startedLatch.countDown()
+            if (!wasClosed) {
+                onClosed?.invoke()
+            }
         }
     }
 
