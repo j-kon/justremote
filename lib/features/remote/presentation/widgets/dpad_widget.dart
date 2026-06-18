@@ -160,7 +160,7 @@ class _OkButtonState extends State<_OkButton> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) {
-        HapticFeedback.lightImpact();
+        HapticFeedback.mediumImpact();
         widget.onCommand();
         setState(() => _pressed = true);
       },
