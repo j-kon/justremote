@@ -27,6 +27,8 @@ class RemoteScreen extends StatefulWidget {
 class _RemoteScreenState extends State<RemoteScreen> {
   final _channel = RemoteControlChannel();
   bool _connected = false;
+  bool _connecting = false;
+  bool _busy = false;
   String? _deviceName;
   int _tabIndex = 0;
   bool _showDpad = true;
@@ -34,71 +36,127 @@ class _RemoteScreenState extends State<RemoteScreen> {
   @override
   void initState() {
     super.initState();
+    _channel.setConnectionClosedHandler(() {
+      if (mounted) {
+        setState(() {
+          _connected = false;
+        });
+      }
+    });
     _connect();
   }
 
   Future<bool> _connect() async {
-    final device = widget.device;
-    if (device == null) {
-      final status = await _channel.getConnectionStatus();
+    if (_connecting) return false;
+    setState(() {
+      _connecting = true;
+    });
+    try {
+      final device = widget.device;
+      if (device == null) {
+        final status = await _channel.getConnectionStatus();
+        if (!mounted) return false;
+        setState(() {
+          _connected = status['connected'] == true;
+          _deviceName = status['deviceName'] as String?;
+          _connecting = false;
+        });
+        return _connected;
+      }
+      final connected = await _channel.connectToTv(device);
       if (!mounted) return false;
       setState(() {
-        _connected = status['connected'] == true;
-        _deviceName = status['deviceName'] as String?;
+        _connected = connected;
+        _deviceName = device.name;
+        _connecting = false;
       });
-      return _connected;
+      return connected;
+    } catch (_) {
+      if (!mounted) return false;
+      setState(() {
+        _connected = false;
+        _connecting = false;
+      });
+      return false;
     }
-    final connected = await _channel.connectToTv(device);
-    if (!mounted) return false;
-    setState(() {
-      _connected = connected;
-      _deviceName = device.name;
-    });
-    return connected;
   }
 
   Future<void> _send(RemoteCommand command) async {
+    if (_connecting || _busy) return;
+    setState(() => _busy = true);
     try {
-      if (!_connected && !await _connect()) return;
+      if (!_connected && !await _connect()) {
+        setState(() => _busy = false);
+        return;
+      }
       final sent = await _channel.sendCommand(command);
-      if (sent) return;
-      if (await _connect()) {
-        await _channel.sendCommand(command);
+      if (!sent) {
+        if (await _connect()) {
+          await _channel.sendCommand(command);
+        }
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _connected = false);
+      setState(() {
+        _connected = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Connection lost. Try again.')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   Future<void> _sendText(String text) async {
+    if (_connecting || _busy) return;
+    setState(() => _busy = true);
     try {
-      if (!_connected && !await _connect()) return;
+      if (!_connected && !await _connect()) {
+        setState(() => _busy = false);
+        return;
+      }
       final sent = await _channel.sendText(text);
       if (!sent) throw Exception('Failed to send text');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _connected = false);
+      setState(() {
+        _connected = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Connection lost. Try again.')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   Future<void> _launchApp(String appLink) async {
+    if (_connecting || _busy) return;
+    setState(() => _busy = true);
     try {
-      if (!_connected && !await _connect()) return;
+      if (!_connected && !await _connect()) {
+        setState(() => _busy = false);
+        return;
+      }
       final launched = await _channel.launchApp(appLink);
       if (!launched) throw Exception('Failed to launch app');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _connected = false);
+      setState(() {
+        _connected = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Connection lost. Try again.')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -128,57 +186,71 @@ class _RemoteScreenState extends State<RemoteScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: StatusBar(
-              connected: _connected,
-              deviceName:
-                  _deviceName ?? widget.device?.name ?? 'No TV connected',
+            child: InkWell(
+              onTap: _connecting || _connected ? null : _connect,
+              borderRadius: BorderRadius.circular(10),
+              child: StatusBar(
+                connected: _connected,
+                connecting: _connecting,
+                deviceName:
+                    _deviceName ?? widget.device?.name ?? 'No TV connected',
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TopControls(onCommand: _send),
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: IndexedStack(
-              index: _tabIndex,
-              children: [
-                // Remote tab — D-pad or Gesture Touchpad
-                _showDpad
-                    ? LayoutBuilder(
-                        builder: (context, constraints) {
-                          final size = constraints.maxHeight.clamp(200.0, 300.0);
-                          return Center(
-                            child: SizedBox.square(
-                              dimension: size,
-                              child: DpadWidget(onCommand: _send),
-                            ),
-                          );
-                        },
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                        child: GestureTrackpad(onCommand: _send),
-                      ),
-                // Media tab
-                MediaTab(onCommand: _send),
-                // Input tab
-                InputTab(onCommand: _send, onSendText: _sendText),
-                // Apps tab
-                AppsTab(onLaunchApp: _launchApp),
-              ],
+            child: AbsorbPointer(
+              absorbing: _connecting || _busy,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TopControls(onCommand: _send),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: IndexedStack(
+                      index: _tabIndex,
+                      children: [
+                        // Remote tab — D-pad or Gesture Touchpad
+                        _showDpad
+                            ? LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final size = constraints.maxHeight.clamp(200.0, 300.0);
+                                  return Center(
+                                    child: SizedBox.square(
+                                      dimension: size,
+                                      child: DpadWidget(onCommand: _send),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                                child: GestureTrackpad(onCommand: _send),
+                              ),
+                        // Media tab
+                        MediaTab(onCommand: _send),
+                        // Input tab
+                        InputTab(onCommand: _send, onSendText: _sendText),
+                        // Apps tab
+                        AppsTab(onLaunchApp: _launchApp),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: VolumeControls(onCommand: _send),
+                  ),
+                  const SizedBox(height: 4),
+                  _BottomTabBar(
+                    selectedIndex: _tabIndex,
+                    onTab: (i) => setState(() => _tabIndex = i),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: VolumeControls(onCommand: _send),
-          ),
-          const SizedBox(height: 4),
-          _BottomTabBar(
-            selectedIndex: _tabIndex,
-            onTab: (i) => setState(() => _tabIndex = i),
           ),
         ],
       ),

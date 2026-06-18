@@ -1,6 +1,8 @@
 package com.justremote.justremote.remote
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.justremote.justremote.remote.models.NativeTvDevice
 import com.justremote.justremote.remote.protocol.PairingProtocolClient
@@ -26,7 +28,15 @@ class TvRemotePlugin(
     )
     private val commandManager = TvCommandManager(
         RemoteProtocolClient(credentialStore, tlsSocketFactory)
-    )
+    ).apply {
+        setConnectionListener(object : TvCommandManager.ConnectionListener {
+            override fun onConnectionClosed() {
+                Handler(Looper.getMainLooper()).post {
+                    channel?.invokeMethod("onConnectionClosed", null)
+                }
+            }
+        })
+    }
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private var channel: MethodChannel? = null
 

@@ -122,4 +122,12 @@ class RemoteControlChannel {
       throw AppException('Unable to read diagnostics.', cause: error);
     }
   }
+
+  void setConnectionClosedHandler(void Function() handler) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onConnectionClosed') {
+        handler();
+      }
+    });
+  }
 }
