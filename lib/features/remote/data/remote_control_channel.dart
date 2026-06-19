@@ -123,6 +123,18 @@ class RemoteControlChannel {
     }
   }
 
+  Future<Map<String, Object?>?> getLastConnectedTv() async {
+    try {
+      final response = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'getLastConnectedTv',
+      );
+      if (response == null) return null;
+      return Map<String, Object?>.from(response);
+    } on PlatformException catch (error) {
+      throw AppException('Unable to read last connected TV.', cause: error);
+    }
+  }
+
   void setConnectionClosedHandler(void Function() handler) {
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onConnectionClosed') {

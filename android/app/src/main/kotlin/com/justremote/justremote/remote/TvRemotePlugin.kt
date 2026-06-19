@@ -59,6 +59,7 @@ class TvRemotePlugin(
             "forgetTv",
             "resetPairingData",
             "getConnectionStatus",
+            "getLastConnectedTv",
             "getDiagnostics" -> executor.execute {
                 handleRemoteMethod(call, result)
             }
@@ -109,6 +110,10 @@ class TvRemotePlugin(
                 "getConnectionStatus" -> {
                     result.success(commandManager.getConnectionStatus())
                 }
+                "getLastConnectedTv" -> {
+                    val lastTv = credentialStore.getLastConnectedTv() ?: credentialStore.getFallbackTv(appContext)
+                    result.success(lastTv?.toMap())
+                }
                 "getDiagnostics" -> {
                     result.success(NativeRemoteDiagnostics.snapshot())
                 }
@@ -117,6 +122,11 @@ class TvRemotePlugin(
             Log.w(TAG, "MethodChannel call failed: ${call.method}", error)
             result.success(call.failureResponse(error.cleanMessage("Operation failed")))
         }
+    }
+
+    fun handleVolumeKey(direction: String): Boolean {
+        val response = commandManager.sendCommand(direction)
+        return response["success"] == true
     }
 
     fun dispose() {

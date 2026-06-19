@@ -29,6 +29,7 @@ class _RemoteButtonWidgetState extends State<RemoteButtonWidget> {
   void _onTapDown(TapDownDetails _) {
     if (widget.isPower) {
       HapticFeedback.mediumImpact();
+      Future.delayed(const Duration(milliseconds: 80), () => HapticFeedback.mediumImpact());
     } else {
       HapticFeedback.lightImpact();
     }

@@ -3,6 +3,7 @@ package com.justremote.justremote
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import android.view.KeyEvent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
@@ -88,6 +89,24 @@ class MainActivity : FlutterActivity(), DiscoveryPermissionRequester {
 
     private fun isGranted(permission: String): Boolean =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val action = event.action
+        val keyCode = event.keyCode
+        if (action == KeyEvent.ACTION_DOWN) {
+            when (keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    val handled = tvRemotePlugin?.handleVolumeKey("volumeUp") ?: false
+                    if (handled) return true
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    val handled = tvRemotePlugin?.handleVolumeKey("volumeDown") ?: false
+                    if (handled) return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
+    }
 
     private companion object {
         const val TAG = "MainActivity"

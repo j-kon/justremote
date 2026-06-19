@@ -52,22 +52,38 @@ class _RemoteScreenState extends State<RemoteScreen> {
       _connecting = true;
     });
     try {
-      final device = widget.device;
+      var device = widget.device;
       if (device == null) {
         final status = await _channel.getConnectionStatus();
+        if (status['connected'] == true) {
+          if (!mounted) return false;
+          setState(() {
+            _connected = true;
+            _deviceName = status['deviceName'] as String?;
+            _connecting = false;
+          });
+          return true;
+        }
+        final lastTvMap = await _channel.getLastConnectedTv();
+        if (lastTvMap != null) {
+          device = TvDevice.fromMap(lastTvMap);
+        }
+      }
+
+      if (device == null) {
         if (!mounted) return false;
         setState(() {
-          _connected = status['connected'] == true;
-          _deviceName = status['deviceName'] as String?;
+          _connected = false;
           _connecting = false;
         });
-        return _connected;
+        return false;
       }
+
       final connected = await _channel.connectToTv(device);
       if (!mounted) return false;
       setState(() {
         _connected = connected;
-        _deviceName = device.name;
+        _deviceName = device!.name;
         _connecting = false;
       });
       return connected;
@@ -162,6 +178,14 @@ class _RemoteScreenState extends State<RemoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final glowColor = switch (_tabIndex) {
+      0 => AppTheme.accent.withValues(alpha: 0.15),
+      1 => Colors.blue.withValues(alpha: 0.12),
+      2 => Colors.teal.withValues(alpha: 0.12),
+      3 => Colors.amber.withValues(alpha: 0.12),
+      _ => AppTheme.accent.withValues(alpha: 0.15),
+    };
+
     return AppScaffold(
       title: '',
       actions: [
@@ -182,75 +206,97 @@ class _RemoteScreenState extends State<RemoteScreen> {
           onPressed: () => context.push('/settings'),
         ),
       ],
-      body: Column(
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: InkWell(
-              onTap: _connecting || _connected ? null : _connect,
-              borderRadius: BorderRadius.circular(10),
-              child: StatusBar(
-                connected: _connected,
-                connecting: _connecting,
-                deviceName:
-                    _deviceName ?? widget.device?.name ?? 'No TV connected',
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            top: _tabIndex == 3 ? 150 : -150,
+            left: -150,
+            right: -150,
+            height: 500,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [glowColor, Colors.transparent],
+                  stops: const [0.0, 0.8],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: AbsorbPointer(
-              absorbing: _connecting || _busy,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TopControls(onCommand: _send),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: InkWell(
+                  onTap: _connecting || _connected ? null : _connect,
+                  borderRadius: BorderRadius.circular(10),
+                  child: StatusBar(
+                    connected: _connected,
+                    connecting: _connecting,
+                    deviceName:
+                        _deviceName ?? widget.device?.name ?? 'No TV connected',
                   ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: IndexedStack(
-                      index: _tabIndex,
-                      children: [
-                        // Remote tab — D-pad or Gesture Touchpad
-                        _showDpad
-                            ? LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final size = constraints.maxHeight.clamp(200.0, 300.0);
-                                  return Center(
-                                    child: SizedBox.square(
-                                      dimension: size,
-                                      child: DpadWidget(onCommand: _send),
-                                    ),
-                                  );
-                                },
-                              )
-                            : Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                                child: GestureTrackpad(onCommand: _send),
-                              ),
-                        // Media tab
-                        MediaTab(onCommand: _send),
-                        // Input tab
-                        InputTab(onCommand: _send, onSendText: _sendText),
-                        // Apps tab
-                        AppsTab(onLaunchApp: _launchApp),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: VolumeControls(onCommand: _send),
-                  ),
-                  const SizedBox(height: 4),
-                  _BottomTabBar(
-                    selectedIndex: _tabIndex,
-                    onTab: (i) => setState(() => _tabIndex = i),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: AbsorbPointer(
+                  absorbing: _connecting || _busy,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TopControls(onCommand: _send),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: IndexedStack(
+                          index: _tabIndex,
+                          children: [
+                            // Remote tab — D-pad or Gesture Touchpad
+                            _showDpad
+                                ? LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final size = constraints.maxHeight.clamp(200.0, 300.0);
+                                      return Center(
+                                        child: SizedBox.square(
+                                          dimension: size,
+                                          child: DpadWidget(onCommand: _send),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Padding(
+                                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                                    child: GestureTrackpad(onCommand: _send),
+                                  ),
+                            // Media tab
+                            MediaTab(onCommand: _send),
+                            // Input tab
+                            InputTab(onCommand: _send, onSendText: _sendText),
+                            // Apps tab
+                            AppsTab(onLaunchApp: _launchApp),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: VolumeControls(onCommand: _send),
+                      ),
+                      const SizedBox(height: 4),
+                      _BottomTabBar(
+                        selectedIndex: _tabIndex,
+                        onTab: (i) => setState(() => _tabIndex = i),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
