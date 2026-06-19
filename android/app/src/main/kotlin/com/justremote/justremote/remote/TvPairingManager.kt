@@ -21,13 +21,11 @@ class TvPairingManager(
         Log.d(TAG, "pairTv requested for ${device.name} at ${device.host}:${device.port}")
 
         return try {
-            if (pairingProtocolClient.isPaired(device)) {
-                Log.d(TAG, "pairTv skipped because ${device.name} is already paired")
-                NativeRemoteDiagnostics.record("${device.name} already paired")
-                return NativePairingStatus(true, "Already paired")
-            }
-
             if (pairingCode.isBlank()) {
+                if (pairingProtocolClient.isPaired(device)) {
+                    Log.d(TAG, "Device already paired, forgetting first for clean re-pairing")
+                    pairingProtocolClient.forgetDevice(device)
+                }
                 runWithTimeout(PAIRING_TIMEOUT_SECONDS, "Pairing timed out") {
                     activeSessions[device.sessionKey()]?.close()
                     activeSessions[device.sessionKey()] = pairingProtocolClient.startPairing(device)

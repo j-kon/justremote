@@ -6,6 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../remote/data/remote_control_channel.dart';
+import '../../saved_tvs/data/saved_tvs_repository.dart';
 import '../domain/tv_device.dart';
 import '../domain/tv_discovery_repository.dart';
 import 'widgets/tv_device_card.dart';
@@ -73,6 +75,28 @@ class _ScanTvScreenState extends ConsumerState<ScanTvScreen> {
     );
   }
 
+  Future<void> _onDeviceTap(TvDevice device) async {
+    final savedTvs = ref.read(savedTvsProvider).value ?? [];
+    TvDevice? savedDevice;
+    for (final d in savedTvs) {
+      if (d.id == device.id || d.host == device.host) {
+        savedDevice = d;
+        break;
+      }
+    }
+
+    if (savedDevice != null && savedDevice.paired) {
+      final connected = await RemoteControlChannel().connectToTv(savedDevice);
+      if (!mounted) return;
+      if (connected) {
+        context.go('/remote', extra: savedDevice);
+        return;
+      }
+    }
+
+    context.push('/pairing', extra: device);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -115,6 +139,7 @@ class _ScanTvScreenState extends ConsumerState<ScanTvScreen> {
             devices: devices,
             onRescan: _rescan,
             onManualIp: _enterManualIp,
+            onDeviceTap: _onDeviceTap,
           );
         },
       ),
@@ -295,11 +320,13 @@ class _ResultList extends StatelessWidget {
     required this.devices,
     required this.onRescan,
     required this.onManualIp,
+    required this.onDeviceTap,
   });
 
   final List<TvDevice> devices;
   final VoidCallback onRescan;
   final VoidCallback onManualIp;
+  final ValueChanged<TvDevice> onDeviceTap;
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +340,7 @@ class _ResultList extends StatelessWidget {
             delay: Duration(milliseconds: index * 80),
             child: TvDeviceCard(
               device: devices[index],
-              onTap: () => context.push('/pairing', extra: devices[index]),
+              onTap: () => onDeviceTap(devices[index]),
             ),
           );
         }
